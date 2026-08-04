@@ -83,11 +83,16 @@ async def run_detail(run_id:int):
 async def execute_run(run_id):
     try:
         targets=[t for t in await db.targets() if t["active"]]
+        print(f"[SCRAPE] run={run_id} starting targets={len(targets)}", flush=True)
         await db.update_run(run_id,targets_total=len(targets))
         for target in targets:
+            print(f"[DISCOVERY] run={run_id} target={target['url']}", flush=True)
             links=await discover(target["url"])
+            print(f"[DISCOVERY] run={run_id} found_links={len(links)} target={target['url']}", flush=True)
             await db.update_run(run_id,targets_completed=(targets.index(target)+1),urls_total=len(links))
             await process_links(links,target["id"],db,run_id)
         await db.update_run(run_id,status="COMPLETED",finished_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc))
+        print(f"[SCRAPE] run={run_id} completed", flush=True)
     except Exception as exc:
+        print(f"[SCRAPE] run={run_id} failed error={exc}", flush=True)
         await db.update_run(run_id,status="FAILED",finished_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),logs=[{"status":"error","error":str(exc)}])
