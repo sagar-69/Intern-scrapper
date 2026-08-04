@@ -1,5 +1,5 @@
 from typing import Literal
-from .settings import settings
+from settings import settings
 
 def get_llm_client(mode: Literal["local", "cloud"]):
     if mode == "cloud":

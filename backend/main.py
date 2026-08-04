@@ -17,7 +17,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 @app.get("/api/health")
 async def health(): return {"status":"ok"}
 @app.get("/api/postings")
-async def postings(search: str="", location: str="", page: int=Query(1,ge=1), limit: int=20): return await db.postings(search,location,(page-1)*limit,limit)
+async def postings(search: str="", location: str="", deadline: str="", page: int=Query(1,ge=1), limit: int=20): return await db.postings(search,location,deadline,(page-1)*limit,limit)
 @app.get("/api/targets")
 async def targets(): return await db.targets()
 @app.post("/api/targets")

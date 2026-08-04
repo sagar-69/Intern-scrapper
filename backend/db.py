@@ -1,3 +1,4 @@
+import hashlib
 import json
 import asyncpg
 from models import InternshipPosting
@@ -24,9 +25,15 @@ class Database:
     async def toggle_target(self, target_id):
         return dict(await self.pool.fetchrow("UPDATE targets SET active=NOT active WHERE id=$1 RETURNING *", target_id))
     async def delete_target(self, target_id): await self.pool.execute("DELETE FROM targets WHERE id=$1", target_id)
-    async def postings(self, search="", location="", offset=0, limit=20):
-        rows = await self.pool.fetch("SELECT * FROM postings WHERE ($1='' OR title ILIKE '%'||$1||'%' OR company ILIKE '%'||$1||'%') AND ($2='' OR location ILIKE '%'||$2||'%') ORDER BY updated_at DESC OFFSET $3 LIMIT $4", search, location, offset, limit)
-        total = await self.pool.fetchval("SELECT COUNT(*) FROM postings WHERE ($1='' OR title ILIKE '%'||$1||'%' OR company ILIKE '%'||$1||'%') AND ($2='' OR location ILIKE '%'||$2||'%')", search, location)
+    async def postings(self, search="", location="", deadline="", offset=0, limit=20):
+        deadline_clause = ""
+        if deadline == "active":
+            deadline_clause = "AND (deadline >= CURRENT_DATE OR deadline IS NULL)"
+        elif deadline == "past":
+            deadline_clause = "AND deadline < CURRENT_DATE"
+        base_where = f"($1='' OR title ILIKE '%'||$1||'%' OR company ILIKE '%'||$1||'%') AND ($2='' OR location ILIKE '%'||$2||'%') {deadline_clause}"
+        rows = await self.pool.fetch(f"SELECT * FROM postings WHERE {base_where} ORDER BY updated_at DESC OFFSET $3 LIMIT $4", search, location, offset, limit)
+        total = await self.pool.fetchval(f"SELECT COUNT(*) FROM postings WHERE {base_where}", search, location)
         return {"items":[dict(r) for r in rows], "total":total}
     async def run(self):
         return dict(await self.pool.fetchrow("INSERT INTO scrape_runs DEFAULT VALUES RETURNING *"))
@@ -39,7 +46,8 @@ class Database:
         cols=list(values); args=list(values.values()); sets=", ".join(f"{c}=${i+1}" for i,c in enumerate(cols))
         await self.pool.execute(f"UPDATE scrape_runs SET {sets} WHERE id=${len(args)+1}", *args, run_id)
     async def upsert(self, posting: InternshipPosting):
-        fingerprint = f"{posting.title.strip().lower()}::{posting.company.strip().lower()}"
+        raw = f"{posting.title.strip().lower()}{posting.company.strip().lower()}"
+        fingerprint = hashlib.sha256(raw.encode()).hexdigest()
         existing = await self.pool.fetchval("SELECT id FROM postings WHERE fingerprint=$1", fingerprint)
         await self.pool.execute("INSERT INTO postings(title,company,location,description,deadline,url,employment_type,fingerprint,source_target_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(fingerprint) DO UPDATE SET location=EXCLUDED.location,description=EXCLUDED.description,deadline=EXCLUDED.deadline,url=EXCLUDED.url,updated_at=NOW()", posting.title, posting.company, posting.location, posting.description, posting.deadline, str(posting.url), posting.employment_type, fingerprint, posting.source_target_id)
         return existing is None
