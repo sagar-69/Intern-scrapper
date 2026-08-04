@@ -38,6 +38,7 @@
 ## Change Log
 | Date | Change | Reason |
 |---|---|---|
+| 2026-08-04 | Added default seed list of 25 tech career sites on first run; set up `.venv` for local backend development; updated `.gitignore` | Make the tool instantly useful on first boot and ease local development. |
 | 2026-08-04 | Implemented LLM scraping (Instructor + Ollama/Gemini), SHA-256 fingerprinting, and deadline filters | Fulfilled MVP requirements defined in FEATURE.md |
 | 2026-08-03 | Initial architecture drafted; swapped OpenAI → Google Gemini via Instructor's `from_genai`, added Ollama local fallback | User requested Google API + open-source-first stack |
 
