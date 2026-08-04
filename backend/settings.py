@@ -9,6 +9,7 @@ class Settings:
     ollama_host: str = os.getenv("OLLAMA_HOST", "http://localhost:11434/v1")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
     worker_count: int = int(os.getenv("WORKER_COUNT", "5"))
+    seed_target_url: str = os.getenv("SEED_TARGET_URL", "")
 
 settings = Settings()
 

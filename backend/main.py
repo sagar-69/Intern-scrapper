@@ -6,11 +6,57 @@ from db import Database
 from models import TargetCreate
 from scraper import discover
 from worker_pool import process_links
+from settings import settings
 
 db=Database()
+
+# Default seed targets — inserted on first run when the targets table is empty
+DEFAULT_SEED_TARGETS = [
+    # FAANG / MAANG
+    "https://www.metacareers.com/jobs",
+    "https://www.amazon.jobs/en/search?category=student-programs",
+    "https://jobs.apple.com/en-us/search?team=internships-STDNT-INTRN",
+    "https://explore.jobs.netflix.net/careers",
+    "https://www.google.com/about/careers/applications/jobs/results?employment_type=INTERN",
+    "https://jobs.careers.microsoft.com/global/en/search?lc=India&et=Internship",
+    # Other big tech
+    "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+    "https://careers.adobe.com/us/en/search-results",
+    "https://careers.salesforce.com/en/jobs/",
+    "https://www.uber.com/global/en/careers/list/",
+    "https://www.atlassian.com/company/careers/all-jobs",
+    "https://careers.bloomberg.com/students",
+    "https://www.goldmansachs.com/careers/students/",
+    "https://qualcomm.wd5.myworkdayjobs.com/External",
+    # Y Combinator
+    "https://www.workatastartup.com/jobs",
+    "https://www.ycombinator.com/companies",
+    # Startup job aggregators
+    "https://wellfound.com/jobs",
+    "https://www.linkedin.com/jobs/internship-jobs/",
+    "https://internshala.com/internships",
+    "https://www.naukri.com/internship-jobs",
+    # India-specific
+    "https://www.flipkartcareers.com/#!/joblist",
+    "https://careers.swiggy.com/",
+    "https://www.zomato.com/careers",
+]
+
 @asynccontextmanager
 async def lifespan(app):
-    await db.connect(); yield; await db.close()
+    await db.connect()
+    # Seed default targets on first run (empty targets table)
+    existing = await db.targets()
+    if not existing:
+        # Use env var if provided, otherwise fall back to built-in list
+        if settings.seed_target_url:
+            urls = [u.strip() for u in settings.seed_target_url.split(",") if u.strip()]
+        else:
+            urls = DEFAULT_SEED_TARGETS
+        for url in urls:
+            await db.add_target(url)
+    yield
+    await db.close()
 app=FastAPI(title="Internship Radar", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
