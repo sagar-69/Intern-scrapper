@@ -14,14 +14,27 @@ There are two ways to run the project.
 *(Note: On the first run, 25 popular tech/startup career sites will be automatically seeded into your targets).*
 
 ### 2. Local Development (Manual)
-1. Ensure you have a running PostgreSQL instance and configure `DATABASE_URL` in your `.env`.
-2. **Backend**:
+1. Install and start PostgreSQL, then create the database:
+   ```bash
+   brew install postgresql@16
+   brew services start postgresql@16
+   createuser radar --createdb
+   psql -d postgres -c "ALTER USER radar PASSWORD 'radar';"
+   createdb -O radar internship_radar
+   ```
+2. Start Ollama and install the local model:
+   ```bash
+   ollama serve
+   ollama pull phi3:mini
+   ```
+3. Ensure `.env` uses `DATABASE_URL=postgresql://radar:radar@localhost:5432/internship_radar` and `LLM_MODE=local`.
+4. **Backend**:
    ```bash
    cd backend
    source .venv/bin/activate
    uvicorn main:app --reload --port 8000
    ```
-3. **Frontend**:
+5. **Frontend** (in another terminal):
    ```bash
    cd frontend
    npm install
