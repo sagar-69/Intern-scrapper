@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import { ArrowUpRight, Pause, Play, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import "./style.css";
 
-const API = "http://localhost:8000/api";
+// When opened from another device, localhost means that device. Use the
+// computer's hostname/IP so phones on the same network can reach the API.
+const API = `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 async function request(path, options) {
   const response = await fetch(`${API}${path}`, options);

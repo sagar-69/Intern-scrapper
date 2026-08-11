@@ -43,6 +43,7 @@
 | 2026-08-11 | Added Ollama extraction mode using Instructor | Allow the full pipeline to run locally without Google Gemini |
 | 2026-08-11 | Switched the default local model to Ollama `phi3:mini` and updated architecture docs | Use the requested lightweight local model for discovery and extraction |
 | 2026-08-11 | Added local non-Docker startup support with automatic `.env` loading | Run the API and React frontend directly on a developer machine |
+| 2026-08-11 | Added LAN access support for the React frontend and API | Allow phones on the same Wi-Fi network to use the dashboard |
 | 2026-08-04 | Added guarded scrape UI, animated scraping state, and terminal posting logs | Prevent white screens on scrape errors and make active scraping visible in both UI and Docker logs |
 | 2026-08-03 | Initial architecture drafted; swapped OpenAI → Google Gemini via Instructor's `from_genai`, added Ollama local fallback | User requested Google API + open-source-first stack |
 
