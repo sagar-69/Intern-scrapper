@@ -66,7 +66,7 @@ function App() {
     </header>
     {error && <div className="errorBanner"><span>{error}</span><button onClick={() => setError("")}><X size={16} /></button></div>}
     {page === "dashboard" && <Dashboard data={postings} loading={loading} search={search} setSearch={setSearch} deadline={deadline} setDeadline={setDeadline} start={start} />}
-    {page === "targets" && <Targets targets={targets} reload={load} />}
+    {page === "targets" && <Targets targets={targets} reload={load} setError={setError} />}
     {page === "run" && <Run run={run} />}
   </div>;
 }
@@ -82,10 +82,18 @@ function Dashboard({ data, loading, search, setSearch, deadline, setDeadline, st
 
 function LoadingRows() { return <>{[1, 2, 3].map(i => <div className="row loadingRow" key={i}><span /><span /><span /><span /><span /></div>)}</>; }
 
-function Targets({ targets, reload }) {
+function Targets({ targets, reload, setError }) {
   const [url, setUrl] = useState(""); const [saving, setSaving] = useState(false);
-  const add = async () => { if (!url || saving) return; setSaving(true); try { await request("/targets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) }); setUrl(""); await reload(); } finally { setSaving(false); } };
-  return <main><div className="eyebrow">CONFIGURATION</div><div className="titleRow"><div><h1>Target domains</h1><p>Manage the career pages Internship Radar watches.</p></div></div><div className="add"><input placeholder="https://company.com/careers" value={url} onChange={e => setUrl(e.target.value)} /><button className="primary" onClick={add} disabled={saving}><Plus size={15} /> {saving ? "Adding…" : "Add target"}</button></div><section className="card table"><div className="tableHead target"><span>DOMAIN</span><span>STATUS</span><span>LAST SCRAPED</span><span>ACTIONS</span></div>{targets.map(t => <div className="row target" key={t.id}><strong>{t.url}</strong><span className={t.active ? "status on" : "status"}>● {t.active ? "active" : "paused"}</span><span>{t.last_scraped_at ? new Date(t.last_scraped_at).toLocaleString() : "Never"}</span><span className="actions"><button onClick={async () => { await request(`/targets/${t.id}/toggle`, { method: "PATCH" }); reload(); }}>{t.active ? <Pause size={14} /> : <Play size={14} />} {t.active ? "Pause" : "Resume"}</button><button onClick={async () => { await request(`/targets/${t.id}`, { method: "DELETE" }); reload(); }}><Trash2 size={14} /></button></span></div>)}</section></main>;
+  const add = async () => {
+    const value = url.trim();
+    if (!value || saving) return;
+    const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    setSaving(true); setError("");
+    try { await request("/targets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: normalized }) }); setUrl(""); await reload(); }
+    catch (err) { setError(`Could not add target: ${err.message}`); }
+    finally { setSaving(false); }
+  };
+  return <main><div className="eyebrow">CONFIGURATION</div><div className="titleRow"><div><h1>Target domains</h1><p>Manage the career pages Internship Radar watches.</p></div></div><div className="add"><input placeholder="https://company.com/careers" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} /><button className="primary" onClick={add} disabled={saving || !url.trim()}><Plus size={15} /> {saving ? "Adding…" : "Add target"}</button></div><section className="card table"><div className="tableHead target"><span>DOMAIN</span><span>STATUS</span><span>LAST SCRAPED</span><span>ACTIONS</span></div>{targets.map(t => <div className="row target" key={t.id}><strong>{t.url}</strong><span className={t.active ? "status on" : "status"}>● {t.active ? "active" : "paused"}</span><span>{t.last_scraped_at ? new Date(t.last_scraped_at).toLocaleString() : "Never"}</span><span className="actions"><button onClick={async () => { try { await request(`/targets/${t.id}/toggle`, { method: "PATCH" }); await reload(); } catch (err) { setError(err.message); } }}>{t.active ? <Pause size={14} /> : <Play size={14} />} {t.active ? "Pause" : "Resume"}</button><button onClick={async () => { try { await request(`/targets/${t.id}`, { method: "DELETE" }); await reload(); } catch (err) { setError(err.message); } }}><Trash2 size={14} /></button></span></div>)}</section></main>;
 }
 
 function Run({ run }) {

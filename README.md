@@ -43,4 +43,4 @@ There are two ways to run the project.
 
 ### Open on a phone
 
-Connect the phone and computer to the same Wi-Fi, find the computer's LAN IP with `ipconfig getifaddr en0`, then open `http://<LAN_IP>:5173` on the phone. Start the backend with `uvicorn main:app --host 0.0.0.0 --reload --port 8000` so the phone can reach the API too.
+Connect the phone and computer to the same Wi-Fi, find the computer's LAN IP with `ipconfig getifaddr en0`, then open `http://<LAN_IP>:5173` on the phone. Start the backend with `uvicorn main:app --host 0.0.0.0 --reload --port 8000` so the phone can reach the API too. Target input accepts either `company.com/careers` or a full `https://` URL.

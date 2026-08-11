@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from typing import Literal
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 class JobLink(BaseModel):
     url: HttpUrl
@@ -19,6 +19,12 @@ class InternshipPosting(BaseModel):
 
 class TargetCreate(BaseModel):
     url: HttpUrl
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def add_scheme(cls, value):
+        value = str(value).strip()
+        return value if value.startswith(("http://", "https://")) else f"https://{value}"
 
 class Target(BaseModel):
     id: int
@@ -39,4 +45,3 @@ class RunSummary(BaseModel):
     new_count: int = 0
     updated_count: int = 0
     logs: list[dict] = Field(default_factory=list)
-
