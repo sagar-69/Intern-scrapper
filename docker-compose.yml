@@ -16,7 +16,7 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-radar}:${POSTGRES_PASSWORD:-radar}@db:5432/${POSTGRES_DB:-internship_radar}
-      LLM_MODE: ${LLM_MODE:-hybrid}
+      LLM_MODE: ${LLM_MODE:-local}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434/v1}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
@@ -31,4 +31,3 @@ services:
     depends_on: [api]
 volumes:
   postgres_data:
-

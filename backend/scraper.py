@@ -39,16 +39,23 @@ def _get_discovery_client():
 
 
 def _get_extraction_client():
-    """Return an Instructor-wrapped Gemini client."""
+    """Return the configured Instructor extraction client."""
     global _extraction_client
     if _extraction_client is None:
         import instructor
-        import google.generativeai as genai
-        genai.configure(api_key=settings.gemini_api_key)
-        _extraction_client = instructor.from_gemini(
-            client=genai.GenerativeModel("gemini-2.5-flash-lite"),
-            mode=instructor.Mode.GEMINI_JSON,
-        )
+        if settings.llm_mode == "local":
+            from openai import OpenAI
+            _extraction_client = instructor.from_openai(
+                OpenAI(base_url=settings.ollama_host, api_key="ollama"),
+                mode=instructor.Mode.JSON,
+            )
+        else:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.gemini_api_key)
+            _extraction_client = instructor.from_gemini(
+                client=genai.GenerativeModel("gemini-2.5-flash-lite"),
+                mode=instructor.Mode.GEMINI_JSON,
+            )
     return _extraction_client
 
 
@@ -137,7 +144,9 @@ async def extract(link: JobLink, target_id: int) -> InternshipPosting:
     raw = await fetch_markdown(str(link.url))
 
     # --- Try LLM-based extraction ---
-    if settings.llm_mode in ("cloud", "hybrid") and settings.gemini_api_key:
+    use_local = settings.llm_mode == "local"
+    use_cloud = settings.llm_mode in ("cloud", "hybrid") and settings.gemini_api_key
+    if use_local or use_cloud:
         try:
             client = _get_extraction_client()
             prompt = (
@@ -149,11 +158,19 @@ async def extract(link: JobLink, target_id: int) -> InternshipPosting:
                 f"Link title: {link.title}\n\n"
                 f"Page content:\n{raw[:12000]}"
             )
-            posting = await asyncio.to_thread(
-                client.chat.completions.create,
-                response_model=InternshipPosting,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            if use_local:
+                posting = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    model=settings.ollama_model,
+                    response_model=InternshipPosting,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+            else:
+                posting = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    response_model=InternshipPosting,
+                    messages=[{"role": "user", "content": prompt}],
+                )
             posting.source_target_id = target_id
             posting.url = link.url  # keep the original URL
             return posting
