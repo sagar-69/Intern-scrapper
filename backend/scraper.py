@@ -1,7 +1,7 @@
 """
 Scraper module — two-stage pipeline:
   1. Discovery: Crawl4AI → markdown → Instructor+Ollama → List[JobLink]
-  2. Extraction: Crawl4AI → markdown → Instructor+Gemini → InternshipPosting
+  2. Extraction: Crawl4AI → markdown → Instructor+Ollama Phi → InternshipPosting
 
 Falls back to heuristic HTML parsing if the LLM call fails.
 """
@@ -134,12 +134,12 @@ async def discover(target_url: str) -> list[JobLink]:
 
 
 # ---------------------------------------------------------------------------
-# Stage 2 — Extraction (Gemini via Instructor)
+# Stage 2 — Extraction (Ollama Phi via Instructor; Gemini remains optional)
 # ---------------------------------------------------------------------------
 async def extract(link: JobLink, target_id: int) -> InternshipPosting:
     """
     Fetch an individual posting page and extract structured fields.
-    Uses Gemini via Instructor; falls back to heuristic parsing on failure.
+    Uses Ollama Phi via Instructor in local mode; falls back to heuristic parsing on failure.
     """
     raw = await fetch_markdown(str(link.url))
 

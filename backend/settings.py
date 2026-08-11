@@ -7,9 +7,8 @@ class Settings:
     llm_mode: str = os.getenv("LLM_MODE", "hybrid")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     ollama_host: str = os.getenv("OLLAMA_HOST", "http://localhost:11434/v1")
-    ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+    ollama_model: str = os.getenv("OLLAMA_MODEL", "phi3:mini")
     worker_count: int = int(os.getenv("WORKER_COUNT", "5"))
     seed_target_url: str = os.getenv("SEED_TARGET_URL", "")
 
 settings = Settings()
-

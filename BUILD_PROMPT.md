@@ -11,7 +11,7 @@ Before writing any code, read `PROJECT.md`, `ARCHITECTURE.md`, and `FEATURE.md` 
 - Scraper: **Crawl4AI** (async, JS-rendering, HTML→Markdown)
 - LLM orchestration: **Instructor**
 - Cloud LLM: **Google Gemini API** (`gemini-2.5-flash-lite` for extraction) via `instructor.from_genai`
-- Local LLM fallback: **Ollama** (`qwen2.5:7b`) via `instructor.from_openai` pointed at Ollama's OpenAI-compatible endpoint
+- Local LLM: **Ollama** (`phi3:mini`) via `instructor.from_openai` pointed at Ollama's OpenAI-compatible endpoint
 - Validation: **Pydantic v2**
 - Backend: **FastAPI** + `asyncpg`
 - Queue: **asyncio.Queue** worker pool
@@ -33,7 +33,7 @@ targets (Postgres) ──▶ DISCOVERY (Crawl4AI + Instructor) ──▶ List[Jo
                                         │                           │                           │
                                         └───────────────────────────┴───────────────────────────┘
                                                                     ▼
-                                       EXTRACTION (Crawl4AI + Instructor + Gemini) ──▶ InternshipPosting
+                                       EXTRACTION (Crawl4AI + Instructor + Ollama Phi) ──▶ InternshipPosting
                                                                     │
                                                                     ▼
                                           hash(title+company) ──▶ Postgres UPSERT
@@ -100,10 +100,10 @@ targets (Postgres) ──▶ DISCOVERY (Crawl4AI + Instructor) ──▶ List[Jo
 1. Docker Compose skeleton (Postgres + FastAPI stub) — confirm `docker compose up` boots clean.
 2. Postgres schema (`targets`, `postings`, `scrape_runs`) from `ARCHITECTURE.md` §5.
 3. Pydantic schemas (`JobLink`, `InternshipPosting`) exactly as specified in `ARCHITECTURE.md` §3.
-4. `llm_client.py` implementing `get_llm_client(mode: Literal["local","cloud"])` per §2 — read `LLM_MODE` from `.env`, default `hybrid` (local for discovery, cloud for extraction).
+4. `llm_client.py` implementing `get_llm_client(mode: Literal["local","cloud"])` per §2 — read `LLM_MODE` from `.env`, default `local` with Ollama `phi3:mini` for discovery and extraction.
 5. Discovery stage (`discovery.py`) — Crawl4AI + Instructor, returns internship-only links.
 6. `asyncio.Queue` + worker pool (`worker_pool.py`) — default 5 workers, configurable via env.
-7. Extraction stage (`extractor.py`) using the Gemini client, exactly the function signature in `ARCHITECTURE.md` §4.
+7. Extraction stage (`extractor.py`) using the Ollama Phi client, exactly the function signature in `ARCHITECTURE.md` §4.
 8. Upsert logic (`db.py`) using the SQL in `ARCHITECTURE.md` §5.
 9. FastAPI routers: `/api/postings`, `/api/targets`, `/api/runs/{id}`.
 10. React frontend: Dashboard → Targets → Run Monitor, in that order, matching the wireframes above.

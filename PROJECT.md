@@ -8,7 +8,7 @@ An LLM-powered, self-healing web scraper that discovers and extracts internship/
 - Extract structured fields (title, company, location, qualifications, apply link, deadline) from each posting.
 - Deduplicate and upsert into Postgres (update if a deadline/field changes, never duplicate).
 - Serve results via API + a simple dashboard UI.
-- Run the whole pipeline for **zero marginal API cost** using local models where possible, with Google Gemini as the low-cost cloud fallback for higher accuracy passes.
+- Run the whole pipeline for **zero marginal API cost** using Ollama locally; Google Gemini remains an optional cloud mode.
 
 ## 3. Non-goals (v1)
 - No user accounts / auth / multi-tenant support.
@@ -24,8 +24,8 @@ Solo developer / small team who wants a self-hosted, privacy-respecting internsh
 |---|---|---|
 | Scraper | Crawl4AI (open source, async, JS-rendering, HTML→Markdown) | Purpose-built for LLM-ready extraction |
 | LLM orchestration | Instructor (open source) | Forces structured, schema-valid output from any LLM backend |
-| Cloud LLM | Google Gemini API (`gemini-2.5-flash` / `gemini-2.5-flash-lite`) | Cheapest capable multimodal cloud option, generous free tier |
-| Local LLM | Ollama (`qwen2.5:7b` or `llama3.1:8b`) | Zero-cost fallback / privacy mode |
+| Cloud LLM | Google Gemini API (`gemini-2.5-flash` / `gemini-2.5-flash-lite`) | Optional cloud mode |
+| Local LLM | Ollama (`phi3:mini`) | Default zero-cost privacy-first model |
 | Schema/validation | Pydantic v2 | Type-safe contracts between LLM output and DB |
 | Backend | FastAPI | Async-native, pairs naturally with `asyncio.Queue` workers |
 | Queue | `asyncio.Queue` (v1) → Redis/RQ (v2 if scaling beyond single process) | Simplicity first |

@@ -7,9 +7,10 @@ An async, self-healing internship discovery pipeline with Crawl4AI, Instructor-c
 There are two ways to run the project.
 
 ### 1. Docker Compose (Recommended)
-1. Copy `.env.example` to `.env` and set `GEMINI_API_KEY` for cloud extraction if desired.
-2. Run `docker compose up --build`.
-3. Open http://localhost:5173. 
+1. Copy `.env.example` to `.env`. The default model is Ollama `phi3:mini`.
+2. Start Ollama and install the model: `ollama serve` and `ollama pull phi3:mini`.
+3. Run `docker compose up --build`.
+4. Open http://localhost:5173.
 *(Note: On the first run, 25 popular tech/startup career sites will be automatically seeded into your targets).*
 
 ### 2. Local Development (Manual)
@@ -26,4 +27,3 @@ There are two ways to run the project.
    npm install
    npm run dev
    ```
-

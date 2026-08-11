@@ -12,7 +12,7 @@
 ## v0.1 — MVP (Done)
 - [x] `targets` CRUD API + Postgres table
 - [x] Discovery stage: Crawl4AI + Instructor → `List[JobLink]`
-- [x] Extraction stage: Crawl4AI + Instructor (Gemini) → `InternshipPosting`
+- [x] Extraction stage: Crawl4AI + Instructor (Ollama Phi) → `InternshipPosting`
 - [x] `asyncio.Queue` worker pool (default N=5)
 - [x] Upsert logic (`ON CONFLICT DO UPDATE`) keyed on `sha256(title+company)`
 - [x] `/api/postings` (list, filter by company/location/deadline)
@@ -40,13 +40,14 @@
 |---|---|---|
 | 2026-08-04 | Added default seed list of 25 tech career sites on first run; set up `.venv` for local backend development; updated `.gitignore` | Make the tool instantly useful on first boot and ease local development. |
 | 2026-08-04 | Implemented LLM scraping (Instructor + Ollama/Gemini), SHA-256 fingerprinting, and deadline filters | Fulfilled MVP requirements defined in FEATURE.md |
-| 2026-08-11 | Added Ollama extraction mode using Instructor and `qwen2.5:7b` | Allow the full pipeline to run locally without Google Gemini |
+| 2026-08-11 | Added Ollama extraction mode using Instructor | Allow the full pipeline to run locally without Google Gemini |
+| 2026-08-11 | Switched the default local model to Ollama `phi3:mini` and updated architecture docs | Use the requested lightweight local model for discovery and extraction |
 | 2026-08-04 | Added guarded scrape UI, animated scraping state, and terminal posting logs | Prevent white screens on scrape errors and make active scraping visible in both UI and Docker logs |
 | 2026-08-03 | Initial architecture drafted; swapped OpenAI → Google Gemini via Instructor's `from_genai`, added Ollama local fallback | User requested Google API + open-source-first stack |
 
 ---
 
 ## Known constraints / decisions to remember
-- Extraction pass defaults to Gemini (`gemini-2.5-flash-lite`) for field accuracy; Discovery pass defaults to local Ollama to keep link-finding free.
+- Discovery and extraction default to local Ollama `phi3:mini`; Gemini is optional when `LLM_MODE=cloud` or `hybrid`.
 - Dedup key is `sha256(title + company)` — if two identical titles at the same company legitimately differ (e.g. different location), this key will collide. Revisit if that becomes a real case.
 - No auth in v1 — this is assumed to run on a private/self-hosted instance only.

@@ -68,9 +68,9 @@ Instructor is backend-agnostic, so both providers sit behind one interface:
      instructor.from_genai(         instructor.from_openai(
        genai.Client())               AsyncOpenAI(base_url=
        model="gemini-2.5-flash-lite"  "http://localhost:11434/v1"),
-                                       model="qwen2.5:7b")
+                                       model="phi3:mini")
 ```
-Default: try local (Ollama) first for the cheap Discovery pass (finding links); use Gemini for the higher-stakes Extraction pass (structured field accuracy matters more there). Both are swappable via a `.env` flag — `LLM_MODE=local|cloud|hybrid`.
+Default: use Ollama `phi3:mini` for both Discovery and Extraction. Gemini remains available as an optional cloud mode. Providers are swappable via `.env` — `LLM_MODE=local|cloud|hybrid`.
 
 ## 3. Pydantic schemas
 
@@ -94,14 +94,14 @@ class InternshipPosting(BaseModel):
     source_url: str
 ```
 
-## 4. Extractor (Gemini via Instructor)
+## 4. Extractor (Ollama Phi via Instructor)
 
 ```python
 import instructor
 from google import genai
 from crawl4ai import AsyncWebCrawler
 
-client = instructor.from_genai(genai.Client())  # reads GEMINI_API_KEY from env
+client = instructor.from_openai(AsyncOpenAI(base_url="http://localhost:11434/v1", api_key="ollama"))
 
 async def extract_job_data(url: str) -> InternshipPosting:
     async with AsyncWebCrawler() as crawler:
@@ -109,7 +109,7 @@ async def extract_job_data(url: str) -> InternshipPosting:
         markdown = result.markdown
 
     job_data = await client.chat.completions.create(
-        model="gemini-2.5-flash-lite",
+        model="phi3:mini",
         response_model=InternshipPosting,
         messages=[
             {"role": "system", "content": "Extract internship data. If a field is missing, return null."},
