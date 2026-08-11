@@ -65,6 +65,7 @@ function App() {
       <button className="primary" onClick={start} disabled={starting || run?.status === "RUNNING"}>{starting || run?.status === "RUNNING" ? <Spinner /> : <Play size={15} />} {starting || run?.status === "RUNNING" ? "Scraping…" : "Run"}</button>
     </header>
     {error && <div className="errorBanner"><span>{error}</span><button onClick={() => setError("")}><X size={16} /></button></div>}
+    {starting && <ScrapeOverlay />}
     {page === "dashboard" && <Dashboard data={postings} loading={loading} search={search} setSearch={setSearch} deadline={deadline} setDeadline={setDeadline} start={start} />}
     {page === "targets" && <Targets targets={targets} reload={load} setError={setError} />}
     {page === "run" && <Run run={run} />}
@@ -72,6 +73,10 @@ function App() {
 }
 
 function Spinner() { return <span className="spinner" aria-label="loading" />; }
+
+function ScrapeOverlay() {
+  return <div className="scrapeOverlay" role="status" aria-live="polite"><div className="overlayCard"><div className="radar large"><span /><i /><i /><i /></div><div><strong>Starting scrape…</strong><p>Connecting to the scraper and discovering internship links.</p></div></div></div>;
+}
 
 function Dashboard({ data, loading, search, setSearch, deadline, setDeadline, start }) {
   return <main><div className="eyebrow">DISCOVER OPPORTUNITIES</div><div className="titleRow"><div><h1>Internship postings</h1><p>Fresh opportunities, extracted and organized for you.</p></div><button className="primary" onClick={start}><Play size={15} /> Start scrape</button></div>
