@@ -12,6 +12,13 @@ CREATE TABLE IF NOT EXISTS scrape_runs (id SERIAL PRIMARY KEY, status TEXT NOT N
 
 class Database:
     def __init__(self): self.pool: asyncpg.Pool | None = None
+    @staticmethod
+    def _run_dict(row):
+        result = dict(row)
+        if isinstance(result.get("logs"), str):
+            try: result["logs"] = json.loads(result["logs"])
+            except json.JSONDecodeError: result["logs"] = []
+        return result
     async def connect(self):
         self.pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=10)
         async with self.pool.acquire() as c: await c.execute(SCHEMA)
@@ -36,10 +43,10 @@ class Database:
         total = await self.pool.fetchval(f"SELECT COUNT(*) FROM postings WHERE {base_where}", search, location)
         return {"items":[dict(r) for r in rows], "total":total}
     async def run(self):
-        return dict(await self.pool.fetchrow("INSERT INTO scrape_runs DEFAULT VALUES RETURNING *"))
+        return self._run_dict(await self.pool.fetchrow("INSERT INTO scrape_runs DEFAULT VALUES RETURNING *"))
     async def run_detail(self, run_id):
         r = await self.pool.fetchrow("SELECT * FROM scrape_runs WHERE id=$1", run_id)
-        return dict(r) if r else None
+        return self._run_dict(r) if r else None
     async def update_run(self, run_id, **values):
         if not values: return
         if "logs" in values: values["logs"] = json.dumps(values["logs"])

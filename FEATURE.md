@@ -46,6 +46,7 @@
 | 2026-08-11 | Added LAN access support for the React frontend and API | Allow phones on the same Wi-Fi network to use the dashboard |
 | 2026-08-11 | Fixed target creation validation, Enter-key submission, and visible target errors | Make Add Target work with bare domains and expose API failures |
 | 2026-08-11 | Added backend URL normalization for target creation | Accept career domains with or without `https://` consistently across UI and API |
+| 2026-08-11 | Normalized JSONB run logs to arrays in API responses | Prevent the Run Monitor from crashing to a white screen after starting a scrape |
 | 2026-08-04 | Added guarded scrape UI, animated scraping state, and terminal posting logs | Prevent white screens on scrape errors and make active scraping visible in both UI and Docker logs |
 | 2026-08-03 | Initial architecture drafted; swapped OpenAI → Google Gemini via Instructor's `from_genai`, added Ollama local fallback | User requested Google API + open-source-first stack |
 
