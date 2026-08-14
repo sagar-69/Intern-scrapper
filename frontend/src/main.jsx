@@ -1,110 +1,282 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowUpRight, Pause, Play, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Bolt, Pause, Play, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import "./style.css";
 
-// When opened from another device, localhost means that device. Use the
-// computer's hostname/IP so phones on the same network can reach the API.
 const API = `${window.location.protocol}//${window.location.hostname}:8000/api`;
+const JOB_TYPES = ["All", "Full-Time", "Internship"];
 
 async function request(path, options) {
   const response = await fetch(`${API}${path}`, options);
   const body = await response.text();
-  let data;
+  let data = {};
   try { data = body ? JSON.parse(body) : {}; } catch { data = {}; }
   if (!response.ok) throw new Error(data.detail || `Request failed (${response.status})`);
   return data;
 }
 
 function App() {
-  const [page, setPage] = useState("dashboard");
+  const [view, setView] = useState("dashboard");
   const [postings, setPostings] = useState({ items: [], total: 0 });
   const [targets, setTargets] = useState([]);
+  const [sources, setSources] = useState([]);
   const [run, setRun] = useState(null);
+  const [targetUrl, setTargetUrl] = useState("https://www.amazon.jobs/en/search?base_query=intern&loc_query=");
+  const [jobType, setJobType] = useState("All");
+  const [sourceSite, setSourceSite] = useState("");
   const [search, setSearch] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
 
+  const isScraping = run?.status === "RUNNING";
+
+  const query = useMemo(() => {
+    const params = new URLSearchParams({
+      search,
+      job_type: jobType,
+      source_site: sourceSite,
+      page: String(page),
+      limit: "20",
+    });
+    return params.toString();
+  }, [search, jobType, sourceSite, page]);
+
   const load = useCallback(async () => {
     try {
       setError("");
-      const query = `?search=${encodeURIComponent(search)}&deadline=${encodeURIComponent(deadline)}`;
-      const [postingData, targetData] = await Promise.all([request(`/postings${query}`), request("/targets")]);
+      const [postingData, targetData, sourceData] = await Promise.all([
+        request(`/postings?${query}`),
+        request("/targets"),
+        request("/sources"),
+      ]);
       setPostings(postingData);
       setTargets(targetData);
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
-  }, [search, deadline]);
+      setSources(sourceData.items || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [query]);
 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!run?.id || ["COMPLETED", "FAILED"].includes(run.status)) return undefined;
+    setPage(1);
+  }, [search, jobType, sourceSite]);
+
+  useEffect(() => {
+    if (!run?.id || run.status !== "RUNNING") return undefined;
     const timer = setInterval(async () => {
-      try { setRun(await request(`/runs/${run.id}`)); } catch (err) { setError(err.message); }
+      try {
+        const latest = await request(`/runs/${run.id}`);
+        setRun(latest);
+        if (latest.status !== "RUNNING") await load();
+      } catch (err) {
+        setError(err.message);
+      }
     }, 1200);
     return () => clearInterval(timer);
-  }, [run?.id, run?.status]);
+  }, [run?.id, run?.status, load]);
 
-  const start = async () => {
-    if (starting || run?.status === "RUNNING") return;
-    setStarting(true); setError("");
+  const scrape = async () => {
+    if (!targetUrl.trim() || starting || isScraping) return;
+    setStarting(true);
+    setError("");
     try {
-      const created = await request("/runs", { method: "POST" });
+      const created = await request("/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: targetUrl, job_type: jobType }),
+      });
       setRun(created);
-      setPage("run");
-    } catch (err) { setError(err.message); }
-    finally { setStarting(false); }
+      setView("dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const runSavedTargets = async () => {
+    if (starting || isScraping) return;
+    setStarting(true);
+    setError("");
+    try {
+      const created = await request(`/runs?job_type=${encodeURIComponent(jobType)}`, { method: "POST" });
+      setRun(created);
+      setView("dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStarting(false);
+    }
   };
 
   return <div className="shell">
-    <header><div className="brand"><span>✦</span> Internship Radar</div>
-      <nav><button className={page === "dashboard" ? "active" : ""} onClick={() => setPage("dashboard")}>Postings</button><button className={page === "targets" ? "active" : ""} onClick={() => setPage("targets")}>Targets</button>{run && <button className={page === "run" ? "active" : ""} onClick={() => setPage("run")}>Run Monitor</button>}</nav>
-      <button className="primary" onClick={start} disabled={starting || run?.status === "RUNNING"}>{starting || run?.status === "RUNNING" ? <Spinner /> : <Play size={15} />} {starting || run?.status === "RUNNING" ? "Scraping…" : "Run"}</button>
+    <header className="topbar">
+      <div className="brand"><span>USP</span> Universal Scraping Platform & Job Dashboard</div>
+      <div className="system">System: OK</div>
+      <nav>
+        <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
+        <button className={view === "targets" ? "active" : ""} onClick={() => setView("targets")}>Targets</button>
+      </nav>
     </header>
+
     {error && <div className="errorBanner"><span>{error}</span><button onClick={() => setError("")}><X size={16} /></button></div>}
-    {starting && <ScrapeOverlay />}
-    {page === "dashboard" && <Dashboard data={postings} loading={loading} search={search} setSearch={setSearch} deadline={deadline} setDeadline={setDeadline} start={start} />}
-    {page === "targets" && <Targets targets={targets} reload={load} setError={setError} />}
-    {page === "run" && <Run run={run} />}
+
+    {view === "dashboard" && <Dashboard
+      targetUrl={targetUrl}
+      setTargetUrl={setTargetUrl}
+      scrape={scrape}
+      runSavedTargets={runSavedTargets}
+      starting={starting}
+      isScraping={isScraping}
+      jobType={jobType}
+      setJobType={setJobType}
+      sourceSite={sourceSite}
+      setSourceSite={setSourceSite}
+      sources={sources}
+      search={search}
+      setSearch={setSearch}
+      postings={postings}
+      loading={loading}
+      run={run}
+      page={page}
+      setPage={setPage}
+    />}
+
+    {view === "targets" && <Targets targets={targets} reload={load} setError={setError} />}
   </div>;
+}
+
+function Dashboard(props) {
+  const pageCount = Math.max(1, Math.ceil((props.postings.total || 0) / 20));
+  return <main>
+    <section className="urlBand">
+      <input
+        value={props.targetUrl}
+        onChange={event => props.setTargetUrl(event.target.value)}
+        onKeyDown={event => event.key === "Enter" && props.scrape()}
+        placeholder="Target URL: https://company.com/careers"
+      />
+      <button className="primary" onClick={props.scrape} disabled={props.starting || props.isScraping}>
+        {props.starting || props.isScraping ? <Spinner /> : <Bolt size={17} />} {props.isScraping ? "Scraping" : "Scrape"}
+      </button>
+    </section>
+
+    <section className="filters">
+      <div className="sectionLabel">FILTERS & CONTROLS</div>
+      <div className="filterGrid">
+        <div className="toggleGroup" aria-label="Job type">
+          <span>Job Type:</span>
+          {JOB_TYPES.map(type => <button key={type} className={props.jobType === type ? "selected" : ""} onClick={() => props.setJobType(type)}>
+            <i /> {type === "All" ? "All Jobs" : type}
+          </button>)}
+        </div>
+        <label>Site Filter:
+          <select value={props.sourceSite} onChange={event => props.setSourceSite(event.target.value)}>
+            <option value="">All Domains</option>
+            {props.sources.map(source => <option key={source} value={source}>{source}</option>)}
+          </select>
+        </label>
+        <label>Search Postings:
+          <input placeholder="Search title/city..." value={props.search} onChange={event => props.setSearch(event.target.value)} />
+        </label>
+        <button className="ghost" onClick={props.runSavedTargets}><RefreshCw size={15} /> Run saved targets</button>
+      </div>
+    </section>
+
+    {props.isScraping && <ScrapeStatus run={props.run} />}
+
+    <section className="postings">
+      <div className="postingsTitle">POSTINGS <span>(Showing {props.postings.total || 0} Results)</span></div>
+      <div className="table">
+        <div className="tableHead"><span>TITLE</span><span>COMPANY</span><span>LOCATION</span><span>TYPE</span><span>ACTION</span></div>
+        {props.loading ? <LoadingRows /> : props.postings.items.map(posting => <div className="row" key={posting.id}>
+          <strong>{posting.job_title || posting.title}</strong>
+          <span>{posting.company}</span>
+          <span>{posting.location}</span>
+          <span className={posting.job_type === "Internship" ? "type internship" : "type"}>{posting.job_type || posting.employment_type}</span>
+          <a href={posting.apply_link || posting.url} target="_blank" rel="noreferrer">Apply <ArrowUpRight size={15} /></a>
+        </div>)}
+        {!props.loading && props.postings.items.length === 0 && <div className="empty">No postings yet. Submit a target URL and start scraping.</div>}
+      </div>
+      <footer className="pager">
+        <button disabled={props.page <= 1} onClick={() => props.setPage(value => value - 1)}><ArrowLeft size={15} /> Previous</button>
+        <span>Page {props.page} of {pageCount}</span>
+        <button disabled={props.page >= pageCount} onClick={() => props.setPage(value => value + 1)}>Next <ArrowRight size={15} /></button>
+      </footer>
+    </section>
+  </main>;
+}
+
+function ScrapeStatus({ run }) {
+  const logs = run?.logs || [];
+  return <section className="scrapeStatus" aria-live="polite">
+    <div className="radar"><span /><i /><i /><i /></div>
+    <div>
+      <strong>Scraping in progress</strong>
+      <p>{run?.urls_completed || 0} / {run?.urls_total || 0} postings processed. New: {run?.new_count || 0}, Updated: {run?.updated_count || 0}</p>
+      <div className="miniLog">
+        {logs.slice(-3).map((log, index) => <code key={`${log.url}-${index}`}>{log.tier || "scraper"}: {log.title || log.url || log.error}</code>)}
+      </div>
+    </div>
+  </section>;
+}
+
+function Targets({ targets, reload, setError }) {
+  const [url, setUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const add = async () => {
+    if (!url.trim() || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      await request("/targets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      setUrl("");
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <main>
+    <section className="targetsPanel">
+      <h1>Manage Target Domains</h1>
+      <div className="addTarget">
+        <input placeholder="https://company.com/careers" value={url} onChange={event => setUrl(event.target.value)} onKeyDown={event => event.key === "Enter" && add()} />
+        <button className="primary" onClick={add} disabled={saving || !url.trim()}><Plus size={15} /> Add Target</button>
+      </div>
+      <div className="targetTable">
+        <div className="targetHead"><span>DOMAIN</span><span>STATUS</span><span>LAST SCRAPED</span><span>ACTIONS</span></div>
+        {targets.map(target => <div className="targetRow" key={target.id}>
+          <strong>{target.url}</strong>
+          <span className={target.active ? "status activeStatus" : "status"}>{target.active ? "active" : "paused"}</span>
+          <span>{target.last_scraped_at ? new Date(target.last_scraped_at).toLocaleString() : "Never"}</span>
+          <span className="actions">
+            <button onClick={async () => { await request(`/targets/${target.id}/toggle`, { method: "PATCH" }); await reload(); }}>{target.active ? <Pause size={14} /> : <Play size={14} />}{target.active ? "Pause" : "Resume"}</button>
+            <button onClick={async () => { await request(`/targets/${target.id}`, { method: "DELETE" }); await reload(); }}><Trash2 size={14} /></button>
+          </span>
+        </div>)}
+      </div>
+    </section>
+  </main>;
 }
 
 function Spinner() { return <span className="spinner" aria-label="loading" />; }
 
-function ScrapeOverlay() {
-  return <div className="scrapeOverlay" role="status" aria-live="polite"><div className="overlayCard"><div className="radar large"><span /><i /><i /><i /></div><div><strong>Starting scrape…</strong><p>Connecting to the scraper and discovering internship links.</p></div></div></div>;
-}
-
-function Dashboard({ data, loading, search, setSearch, deadline, setDeadline, start }) {
-  return <main><div className="eyebrow">DISCOVER OPPORTUNITIES</div><div className="titleRow"><div><h1>Internship postings</h1><p>Fresh opportunities, extracted and organized for you.</p></div><button className="primary" onClick={start}><Play size={15} /> Start scrape</button></div>
-    <div className="toolbar"><input placeholder="Search title or company" value={search} onChange={e => setSearch(e.target.value)} /><select><option>Any location</option></select><select value={deadline} onChange={e => setDeadline(e.target.value)}><option value="">Any deadline</option><option value="active">Active / upcoming</option><option value="past">Past</option></select><button onClick={() => { setSearch(""); setDeadline(""); }}><RefreshCw size={15} /> Reset</button></div>
-    <section className="card table"><div className="tableHead"><span>TITLE</span><span>COMPANY</span><span>LOCATION</span><span>DEADLINE</span><span /></div>{loading ? <LoadingRows /> : data.items.map(p => <div className="row" key={p.id}><strong>{p.title}</strong><span>{p.company}</span><span>{p.location}</span><span>{p.deadline ? new Date(p.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}</span><a href={p.url} target="_blank" rel="noreferrer"><ArrowUpRight size={16} /></a></div>)}{!loading && !data.items.length && <div className="empty">No postings yet. Add a target and run the scraper.</div>}<footer><span>Showing {data.items.length} of {data.total} postings</span></footer></section>
-  </main>;
-}
-
-function LoadingRows() { return <>{[1, 2, 3].map(i => <div className="row loadingRow" key={i}><span /><span /><span /><span /><span /></div>)}</>; }
-
-function Targets({ targets, reload, setError }) {
-  const [url, setUrl] = useState(""); const [saving, setSaving] = useState(false);
-  const add = async () => {
-    const value = url.trim();
-    if (!value || saving) return;
-    const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-    setSaving(true); setError("");
-    try { await request("/targets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: normalized }) }); setUrl(""); await reload(); }
-    catch (err) { setError(`Could not add target: ${err.message}`); }
-    finally { setSaving(false); }
-  };
-  return <main><div className="eyebrow">CONFIGURATION</div><div className="titleRow"><div><h1>Target domains</h1><p>Manage the career pages Internship Radar watches.</p></div></div><div className="add"><input placeholder="https://company.com/careers" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} /><button className="primary" onClick={add} disabled={saving || !url.trim()}><Plus size={15} /> {saving ? "Adding…" : "Add target"}</button></div><section className="card table"><div className="tableHead target"><span>DOMAIN</span><span>STATUS</span><span>LAST SCRAPED</span><span>ACTIONS</span></div>{targets.map(t => <div className="row target" key={t.id}><strong>{t.url}</strong><span className={t.active ? "status on" : "status"}>● {t.active ? "active" : "paused"}</span><span>{t.last_scraped_at ? new Date(t.last_scraped_at).toLocaleString() : "Never"}</span><span className="actions"><button onClick={async () => { try { await request(`/targets/${t.id}/toggle`, { method: "PATCH" }); await reload(); } catch (err) { setError(err.message); } }}>{t.active ? <Pause size={14} /> : <Play size={14} />} {t.active ? "Pause" : "Resume"}</button><button onClick={async () => { try { await request(`/targets/${t.id}`, { method: "DELETE" }); await reload(); } catch (err) { setError(err.message); } }}><Trash2 size={14} /></button></span></div>)}</section></main>;
-}
-
-function Run({ run }) {
-  if (!run) return <main><section className="card empty">Preparing scraper…</section></main>;
-  const active = run.status === "RUNNING";
-  return <main><div className="eyebrow">LIVE PIPELINE</div><div className="titleRow"><div><h1>Run #{run.id}</h1><p>Started {new Date(run.started_at).toLocaleTimeString()}</p></div><span className={`pill ${run.status.toLowerCase()}`}>{active && <Spinner />} {active ? "SCRAPING" : run.status}</span></div>{active && <div className="scrapeHero"><div className="radar"><span /><i /><i /><i /></div><div><strong>Scraping internship postings</strong><p>Discovering links and extracting company details. This page updates live.</p></div></div>}<section className="metrics"><div><label>DISCOVERY</label><b>{run.targets_completed || 0} / {run.targets_total || 0} targets</b></div><div><label>EXTRACTION</label><b>{run.urls_completed || 0} / {run.urls_total || 0} URLs</b></div><div><label>POSTINGS FOUND</label><b>{run.postings_found || 0}</b></div><div><label>NEW / UPDATED</label><b>{run.new_count || 0} / {run.updated_count || 0}</b></div></section><section className="card log"><h3>Live scrape log</h3>{(run.logs || []).length ? run.logs.slice().reverse().map((l, i) => <div className="logrow" key={`${l.url}-${i}`}><span className={l.status === "ok" ? "ok" : "bad"}>{l.status === "ok" ? "✓" : "✕"}</span><strong>{l.company || l.worker || "scraper"}</strong><code>{l.url || l.error}</code></div>) : <div className="empty logEmpty">Waiting for the first posting link…</div>}</section></main>;
+function LoadingRows() {
+  return <>{[1, 2, 3].map(index => <div className="row loadingRow" key={index}><span /><span /><span /><span /><span /></div>)}</>;
 }
 
 createRoot(document.getElementById("root")).render(<App />);

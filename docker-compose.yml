@@ -1,4 +1,12 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   db:
     image: postgres:16-alpine
     environment:
@@ -16,15 +24,32 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-radar}:${POSTGRES_PASSWORD:-radar}@db:5432/${POSTGRES_DB:-internship_radar}
+      REDIS_URL: redis://redis:6379/0
       LLM_MODE: ${LLM_MODE:-local}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434/v1}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-phi3:mini}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
       WORKER_COUNT: ${WORKER_COUNT:-5}
       SEED_TARGET_URL: ${SEED_TARGET_URL:-}
     ports: ["8000:8000"]
     depends_on:
       db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+  worker:
+    build: ./backend
+    command: celery -A celery_app.celery_app worker --loglevel=info --concurrency=${WORKER_COUNT:-2}
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-radar}:${POSTGRES_PASSWORD:-radar}@db:5432/${POSTGRES_DB:-internship_radar}
+      REDIS_URL: redis://redis:6379/0
+      LLM_MODE: ${LLM_MODE:-local}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434/v1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      WORKER_COUNT: ${WORKER_COUNT:-5}
+      SEED_TARGET_URL: ${SEED_TARGET_URL:-}
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
   frontend:
     build: ./frontend
     ports: ["5173:5173"]
